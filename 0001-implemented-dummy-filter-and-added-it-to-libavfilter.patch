@@ -1,0 +1,222 @@
+From 0d65ee01cea281b211e4809013546389bb17ada8 Mon Sep 17 00:00:00 2001
+From: Mohamed Khaled Mohamed
+ <56936494+MohamedElhadidy0019@users.noreply.github.com>
+Date: Fri, 1 Apr 2022 22:17:36 +0200
+Subject: [PATCH] implemented dummy filter and added it to libavfilter
+
+implemented the cuda dummy filter , the function convolves the laplacian filter (edge detector) on the image , and added the dummy filter to libavfilter
+---
+ configure                    |   5 ++
+ libavfilter/Makefile         |   3 +
+ libavfilter/allfilters.c     |   1 +
+ libavfilter/vf_dummy_cuda.cu | 131 +++++++++++++++++++++++++++++++----
+ 4 files changed, 127 insertions(+), 13 deletions(-)
+
+diff --git a/configure b/configure
+index e4d36aa639..b7149ea368 100755
+--- a/configure
++++ b/configure
+@@ -3144,6 +3144,11 @@ thumbnail_cuda_filter_deps_any="cuda_nvcc cuda_llvm"
+ transpose_npp_filter_deps="ffnvcodec libnpp"
+ overlay_cuda_filter_deps="ffnvcodec"
+ overlay_cuda_filter_deps_any="cuda_nvcc cuda_llvm"
++
++dummy_cuda_filter_deps="ffnvcodec"
++dummy_cuda_filter_deps_any="cuda_nvcc cuda_llvm"
++
++
+ sharpen_npp_filter_deps="ffnvcodec libnpp"
+ 
+ amf_deps_any="libdl LoadLibrary"
+diff --git a/libavfilter/Makefile b/libavfilter/Makefile
+index d5fc27a575..dcebc2f946 100644
+--- a/libavfilter/Makefile
++++ b/libavfilter/Makefile
+@@ -576,6 +576,9 @@ OBJS-$(CONFIG_SHOWVOLUME_FILTER)             += avf_showvolume.o
+ OBJS-$(CONFIG_SHOWWAVES_FILTER)              += avf_showwaves.o
+ OBJS-$(CONFIG_SHOWWAVESPIC_FILTER)           += avf_showwaves.o
+ OBJS-$(CONFIG_SPECTRUMSYNTH_FILTER)          += vaf_spectrumsynth.o
++OBJS-$(CONFIG_DUMMY_CUDA_FILTER)             += vf_dummy_cuda.o  vf_dummy_cuda.ptx.o framesync.o
++
++
+ 
+ # multimedia sources
+ OBJS-$(CONFIG_AMOVIE_FILTER)                 += src_movie.o
+diff --git a/libavfilter/allfilters.c b/libavfilter/allfilters.c
+index f5caee3a62..1bd79d4a5d 100644
+--- a/libavfilter/allfilters.c
++++ b/libavfilter/allfilters.c
+@@ -362,6 +362,7 @@ extern const AVFilter ff_vf_overlay_qsv;
+ extern const AVFilter ff_vf_overlay_vaapi;
+ extern const AVFilter ff_vf_overlay_vulkan;
+ extern const AVFilter ff_vf_overlay_cuda;
++extern const AVFilter ff_vf_dummy_cuda;
+ extern const AVFilter ff_vf_owdenoise;
+ extern const AVFilter ff_vf_pad;
+ extern const AVFilter ff_vf_pad_opencl;
+diff --git a/libavfilter/vf_dummy_cuda.cu b/libavfilter/vf_dummy_cuda.cu
+index 42605fa39f..e1f9f9264f 100644
+--- a/libavfilter/vf_dummy_cuda.cu
++++ b/libavfilter/vf_dummy_cuda.cu
+@@ -24,40 +24,145 @@
+ 
+ extern "C" {
+ 
++
++
++
++
++/*
++function description : function convolves the edge detector laplacian operator with the image
++
++input :
++    src_tex_Y: Y channel of source image normallized to [0,1]
++    src_tex_U: U channel of source image normallized to [0,1]
++    src_tex_V: V channel of source image normallized to [0,1]
++    dst_Y: Y channel of output convolved image [0,255]
++    dst_U: U channel of output convolved image [0,255] ,always zero as the Y channel only matters in edge detection
++    dst_V: V channel of output convolved image [0,255] ,always zero as the Y channel only matters in edge detection
++    width: width of sourceY image
++    height: height of sourceY image
++    pitch: pitch of sourceY image
++    width_uv: width of sourceU,V image
++    height_uv: height of sourceU,V image
++    pitch_uv: pitch of sourceU,V image
++*/
++
+ __global__ void Process_uchar(cudaTextureObject_t src_tex_Y, cudaTextureObject_t src_tex_U, cudaTextureObject_t src_tex_V,
+                               uchar *dst_Y, uchar *dst_U, uchar *dst_V,
+                               int width, int height, int pitch,
+                               int width_uv, int height_uv, int pitch_uv)
+ {
+-    int x = blockIdx.x * blockDim.x + threadIdx.x;
+-    int y = blockIdx.y * blockDim.y + threadIdx.y;
++    float conv_kernel[] = {0, 1, 0,  
++                    1, -4, 1,
++                    0, 1, 0};
+ 
+-    if (y >= height || x >= width)
++    int kernel_size = 3; //size of convolution kernel (kernel dimesnion is size * size)
++    int x = blockIdx.x * blockDim.x + threadIdx.x; // x coordinate of current pixel
++    int y = blockIdx.y * blockDim.y + threadIdx.y; // y coordinate of current pixel
++    if (y >= height || x >= width)                 // check if out of image
+         return;
+-    dst_Y[y*pitch + x] = tex2D<float>(src_tex_Y, x, y) * 255;
++    int y_index = y * pitch + x; // index of current pixel in sourceY , access the 1d array as a 2d one
++
++    int start_r = x - kernel_size / 2;
++    int start_c = y - kernel_size / 2;
++    int temp = 0; 
++    //loop for applying convolution kernel to each pixel
++    for (int i = 0; i < kernel_size; i++)
++    {
++        for (int j = 0; j < kernel_size; j++)
++        {
++            int r = start_r + i;
++            int c = start_c + j;
++            bool flag = r >= 0 && r < width && c >= 0 && c < height;
++            if (flag)
++            {
++                // multiply by 255 as the input kernel and tex  is in [0,1]
++                temp += conv_kernel[i * kernel_size + j] * tex2D<float>(src_tex_Y, r, c) * 255;
++            }
++        }
++    }
++    dst_Y[y_index] = temp; // put the result of convolution of the pixel in output image
++
+ 
+     if (y >= height_uv || x >= width_uv)
+         return;
+-    dst_U[y*pitch_uv + x] = tex2D<float>(src_tex_U, x, y) * 255;
+-    dst_V[y*pitch_uv + x] = tex2D<float>(src_tex_V, x, y) * 255;
++
++    int u_index, v_index;
++    v_index = u_index = y * pitch_uv + x;
++
++    //make the UV channels black 
++    dst_U[u_index] = 128;
++    dst_V[v_index] = 128;
++    
+ }
+ 
++
++
++
++
++
++/*
++
++function convolves the edge detector laplacian operator with the image
++
++input: 
++    src_tex_Y: Y channel of source image normallized to [0,1]
++    src_tex_UV : UV channel of source image normallized to [0,1] , it is like a tuple that has U and V channels
++    dst_Y: Y channel of output convolved image [0,255]
++    dst_UV : UV channel output , it is always zero as Y channel only matters in edge detection
++    unused2: unused parameter
++    width: width of sourceY image
++    height: height of sourceY image
++    pitch: pitch of sourceY image , the linesize 
++    width_uv: width of sourceU,V image
++    height_uv: height of sourceU,V image
++    pitch_uv: pitch of sourceU,V image , the linesize
++
++*/
++
+ __global__ void Process_uchar2(cudaTextureObject_t src_tex_Y, cudaTextureObject_t src_tex_UV, cudaTextureObject_t unused1,
+                                uchar *dst_Y, uchar2 *dst_UV, uchar *unused2,
+                                int width, int height, int pitch,
+                                int width_uv, int height_uv, int pitch_uv)
+ {
+-    int x = blockIdx.x * blockDim.x + threadIdx.x;
+-    int y = blockIdx.y * blockDim.y + threadIdx.y;
+ 
+-    if (y >= height || x >= width)
++    float conv_kernel[] = {0, 1, 0,  
++                    1, -4, 1,
++                    0, 1, 0};
++
++    int kernel_size = 3; //size of convolution kernel (kernel dimesnion is size * size)
++    int x = blockIdx.x * blockDim.x + threadIdx.x; // x coordinate of current pixel
++    int y = blockIdx.y * blockDim.y + threadIdx.y; // y coordinate of current pixel
++    if (y >= height || x >= width)                 // check if out of image
+         return;
+-    dst_Y[y*pitch + x] = tex2D<float>(src_tex_Y, x, y) * 255;
++    int y_index = y * pitch + x; // index of current pixel in sourceY , access the 1d array as a 2d one
++
++    int start_r = x - kernel_size / 2;
++    int start_c = y - kernel_size / 2;
++    int temp = 0; 
++    //loop for applying convolution kernel to each pixel
++    for (int i = 0; i < kernel_size; i++)
++    {
++        for (int j = 0; j < kernel_size; j++)
++        {
++            int r = start_r + i;
++            int c = start_c + j;
++            bool flag = r >= 0 && r < width && c >= 0 && c < height;
++            if (flag)
++            {
++                // multiply by 255 as the input kernel and tex  is in [0,1]
++                temp += conv_kernel[i * kernel_size + j] * tex2D<float>(src_tex_Y, r, c) * 255;
++            }
++        }
++    }
++    dst_Y[y_index] = temp; // put the result of convolution of the pixel in output image
++
+ 
+     if (y >= height_uv || x >= width_uv)
+         return;
+-    float2 uv = tex2D<float2>(src_tex_UV, x, y) * 255;
+-    dst_UV[y*pitch_uv + x] = make_uchar2(uv.x, uv.y);
+-}
++
++    //make the UV channels black
++    dst_UV[y*pitch_uv + x] = make_uchar2(128, 128);
+ 
+ }
++
++ }
+-- 
+2.25.1
+
