@@ -576,6 +576,9 @@ OBJS-$(CONFIG_SHOWVOLUME_FILTER)             += avf_showvolume.o
 OBJS-$(CONFIG_SHOWWAVES_FILTER)              += avf_showwaves.o
 OBJS-$(CONFIG_SHOWWAVESPIC_FILTER)           += avf_showwaves.o
 OBJS-$(CONFIG_SPECTRUMSYNTH_FILTER)          += vaf_spectrumsynth.o
+OBJS-$(CONFIG_DUMMY_CUDA_FILTER)             += vf_dummy_cuda.o  vf_dummy_cuda.ptx.o framesync.o
+
+
 
 # multimedia sources
 OBJS-$(CONFIG_AMOVIE_FILTER)                 += src_movie.o

@@ -3144,6 +3144,11 @@ thumbnail_cuda_filter_deps_any="cuda_nvcc cuda_llvm"
 transpose_npp_filter_deps="ffnvcodec libnpp"
 overlay_cuda_filter_deps="ffnvcodec"
 overlay_cuda_filter_deps_any="cuda_nvcc cuda_llvm"
+
+dummy_cuda_filter_deps="ffnvcodec"
+dummy_cuda_filter_deps_any="cuda_nvcc cuda_llvm"
+
+
 sharpen_npp_filter_deps="ffnvcodec libnpp"
 
 amf_deps_any="libdl LoadLibrary"
