@@ -27,6 +27,46 @@ extern "C" {
 
 
 
+// __device__ int julia( int x, int y ) {
+//  const float scale = 1.5;
+//  float jx = scale * (float)(DIM/2 - x)/(DIM/2);
+//  float jy = scale * (float)(DIM/2 - y)/(DIM/2);
+//  cuComplex c(-0.8, 0.156);
+//  cuComplex a(jx, jy);
+//  int i = 0;
+//  for (i=0; i<200; i++) {
+//  a = a * a + c;
+//  if (a.magnitude2() > 1000)
+//  return 0;
+//  }
+//  return 1; 
+// }
+
+__device__ double minnn(double a, double b) {
+  return a < b ? a : b;
+}
+__device__ double maxxx(double a, double b) {
+  return a > b ? a : b;
+}
+__device__ double root(double n){
+  // Max and minnn are used to take into account numbers less than 1
+  double lo = minnn(1.0, n), hi = maxxx(1.0, n), mid;
+
+  // Update the bounds to be off the target by a factor of 10
+  while(100 * lo * lo < n) lo *= 10;
+  while(0.01 * hi * hi > n) hi *= 0.1;
+
+  for(int i = 0 ; i < 100 ; i++){
+      mid = (lo+hi)/2;
+      if(mid*mid == n) return mid;
+      if(mid*mid > n) hi = mid;
+      else lo = mid;
+  }
+  return mid;
+}
+
+
+
 
 /*
 function description : function convolves the edge detector laplacian operator with the image
@@ -51,47 +91,71 @@ __global__ void Process_uchar(cudaTextureObject_t src_tex_Y, cudaTextureObject_t
                               int width, int height, int pitch,
                               int width_uv, int height_uv, int pitch_uv)
 {
-    float conv_kernel[] = {0, 1, 0,  
-                    1, -4, 1,
-                    0, 1, 0};
+   
 
-    int kernel_size = 3; //size of convolution kernel (kernel dimesnion is size * size)
+    int window_size = 3; //size of window that we take its sum
     int x = blockIdx.x * blockDim.x + threadIdx.x; // x coordinate of current pixel
     int y = blockIdx.y * blockDim.y + threadIdx.y; // y coordinate of current pixel
     if (y >= height || x >= width)                 // check if out of image
         return;
     int y_index = y * pitch + x; // index of current pixel in sourceY , access the 1d array as a 2d one
 
-    int start_r = x - kernel_size / 2;
-    int start_c = y - kernel_size / 2;
+    int start_r = x - window_size / 2;
+    int start_c = y - window_size / 2;
     int temp = 0; 
-    //loop for applying convolution kernel to each pixel
-    for (int i = 0; i < kernel_size; i++)
+
+    float u_chroma=54.0/255.0;
+    float v_chroma=34.0/255.0;
+
+    //yuv
+    //             y        u           v
+    // kak_yuv= 133.8380, -14.7101, -41.9539
+    int counter=0;
+    double diff=0.0;
+    float du,dv;
+    for (int i = 0; i < window_size; i++)
     {
-        for (int j = 0; j < kernel_size; j++)
+        for (int j = 0; j < window_size; j++)
         {
             int r = start_r + i;
             int c = start_c + j;
             bool flag = r >= 0 && r < width && c >= 0 && c < height;
             if (flag)
             {
-                // multiply by 255 as the input kernel and tex  is in [0,1]
-                temp += conv_kernel[i * kernel_size + j] * tex2D<float>(src_tex_Y, r, c) * 255;
+                du=tex2D<float>(src_tex_U, r, c) - u_chroma;
+                dv=tex2D<float>(src_tex_V, r, c) - v_chroma;
+                diff += root((du * du + dv * dv) / (255.0 * 255.0 * 2) );
+                counter++;
             }
         }
     }
-    dst_Y[y_index] = temp; // put the result of convolution of the pixel in output image
-
+    diff/=float(counter);
+    
+    
+    int u_index, v_index;
+    v_index = u_index = y * pitch_uv + x;
+    float similarity = 0.1;
 
     if (y >= height_uv || x >= width_uv)
         return;
 
-    int u_index, v_index;
-    v_index = u_index = y * pitch_uv + x;
-
-    //make the UV channels black 
+    if(diff > similarity)
+    {
+    dst_Y[y_index] = 255; // put the result of convolution of the pixel in output imag
+    //make the UV channels white 
     dst_U[u_index] = 128;
     dst_V[v_index] = 128;
+    
+    }
+    else{
+        dst_Y[y_index] = tex2D<float>(src_tex_Y, x, y)*255;
+        dst_U[u_index] = tex2D<float>(src_tex_U, x, y)*255;
+        dst_V[v_index] = tex2D<float>(src_tex_V, x, y)*255;
+    }
+    
+    //dst_Y[y_index] = temp; // put the result of convolution of the pixel in output image
+
+
     
 }
 
@@ -125,44 +189,114 @@ __global__ void Process_uchar2(cudaTextureObject_t src_tex_Y, cudaTextureObject_
                                int width_uv, int height_uv, int pitch_uv)
 {
 
-    float conv_kernel[] = {0, 1, 0,  
-                    1, -4, 1,
-                    0, 1, 0};
-
-    int kernel_size = 3; //size of convolution kernel (kernel dimesnion is size * size)
+  
+    int window_size = 3; //size of convolution kernel (kernel dimesnion is size * size)
     int x = blockIdx.x * blockDim.x + threadIdx.x; // x coordinate of current pixel
     int y = blockIdx.y * blockDim.y + threadIdx.y; // y coordinate of current pixel
     if (y >= height || x >= width)                 // check if out of image
         return;
     int y_index = y * pitch + x; // index of current pixel in sourceY , access the 1d array as a 2d one
 
-    int start_r = x - kernel_size / 2;
-    int start_c = y - kernel_size / 2;
+    int start_r = x - window_size / 2;
+    int start_c = y - window_size / 2;
     int temp = 0; 
-    //loop for applying convolution kernel to each pixel
-    for (int i = 0; i < kernel_size; i++)
+
+    
+    //green color
+    float u_chroma=54.0/255.0;
+    float v_chroma=34.0/255.0;
+
+
+  
+    int counter=0;
+    double diff=0.0;
+    float du,dv;
+    for (int i = 0; i < window_size; i++)
     {
-        for (int j = 0; j < kernel_size; j++)
+        for (int j = 0; j < window_size; j++)
         {
             int r = start_r + i;
             int c = start_c + j;
             bool flag = r >= 0 && r < width && c >= 0 && c < height;
             if (flag)
             {
-                // multiply by 255 as the input kernel and tex  is in [0,1]
-                temp += conv_kernel[i * kernel_size + j] * tex2D<float>(src_tex_Y, r, c) * 255;
+                uchar2 uv=tex2D<uchar2>(src_tex_UV, r, c);
+                du=uv.x - u_chroma;
+                dv=uv.y - v_chroma;
+                diff += root((du * du + dv * dv) / (255.0 * 255.0 * 2));
+                counter++;
             }
         }
     }
-    dst_Y[y_index] = temp; // put the result of convolution of the pixel in output image
-
+    diff/=float(counter);
+    
+    
+    int u_index, v_index;
+    v_index = u_index = y * pitch_uv + x;
+    float similarity = 0.1;
 
     if (y >= height_uv || x >= width_uv)
         return;
-
-    //make the UV channels black
-    dst_UV[y*pitch_uv + x] = make_uchar2(128, 128);
+    if(diff > similarity)
+    {
+    dst_Y[y_index] = 255; // put the result of convolution of the pixel in output imag
+    //make the UV channels white 
+    dst_UV[u_index] = make_uchar2(128,128);
+    
+    }
+    else
+    {
+        dst_Y[y_index] = tex2D<float>(src_tex_Y, x, y)*255;
+        dst_UV[u_index]=tex2D<uchar2>(src_tex_UV, x, y)*255;
+    }
 
 }
 
- }
+}
+// __global__ void Process_uchar2(cudaTextureObject_t src_tex_Y, cudaTextureObject_t src_tex_UV, cudaTextureObject_t unused1,
+//                                uchar *dst_Y, uchar2 *dst_UV, uchar *unused2,
+//                                int width, int height, int pitch,
+//                                int width_uv, int height_uv, int pitch_uv)
+// {
+
+//     float conv_kernel[] = {0, 1, 0,  
+//                     1, -4, 1,
+//                     0, 1, 0};
+
+//     int kernel_size = 3; //size of convolution kernel (kernel dimesnion is size * size)
+//     int x = blockIdx.x * blockDim.x + threadIdx.x; // x coordinate of current pixel
+//     int y = blockIdx.y * blockDim.y + threadIdx.y; // y coordinate of current pixel
+//     if (y >= height || x >= width)                 // check if out of image
+//         return;
+//     int y_index = y * pitch + x; // index of current pixel in sourceY , access the 1d array as a 2d one
+
+//     int start_r = x - kernel_size / 2;
+//     int start_c = y - kernel_size / 2;
+//     int temp = 0; 
+//     //loop for applying convolution kernel to each pixel
+//     for (int i = 0; i < kernel_size; i++)
+//     {
+//         for (int j = 0; j < kernel_size; j++)
+//         {
+//             int r = start_r + i;
+//             int c = start_c + j;
+//             bool flag = r >= 0 && r < width && c >= 0 && c < height;
+//             if (flag)
+//             {
+//                 // multiply by 255 as the input kernel and tex  is in [0,1]
+//                 temp += conv_kernel[i * kernel_size + j] * tex2D<float>(src_tex_Y, r, c) * 255;
+//             }
+//         }
+//     }
+//     dst_Y[y_index] = temp; // put the result of convolution of the pixel in output image
+
+
+//     if (y >= height_uv || x >= width_uv)
+//         return;
+
+//     //make the UV channels black
+//     dst_UV[y*pitch_uv + x] = make_uchar2(128, 128);
+
+// }
+
+//  }
