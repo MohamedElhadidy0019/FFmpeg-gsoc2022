@@ -79,8 +79,7 @@ __global__ void Process_uchar(cudaTextureObject_t src_tex_Y, cudaTextureObject_t
                               int width_uv, int height_uv, int pitch_uv)
 {
    
-    int hh=0;
-    int window_size = 3; //size of window that we take its sum
+    int window_size = 3; //size of window
     int x = blockIdx.x * blockDim.x + threadIdx.x; // x coordinate of current pixel
     int y = blockIdx.y * blockDim.y + threadIdx.y; // y coordinate of current pixel
    
@@ -97,14 +96,12 @@ __global__ void Process_uchar(cudaTextureObject_t src_tex_Y, cudaTextureObject_t
 
    
     //green color
-    float u_chroma=48.0/255.0;
-    float v_chroma=45.0/255.0;
+    float u_chroma=48.0f;
+    float v_chroma=45.0f;
+    float similarity = 0.22f;
 
-    //yuv
-    //             y        u           v
-    // kak_yuv= 133.8380, -14.7101, -41.9539
     int counter=0;
-    double diff=0.0;
+    float diff=0.0f;
     float du,dv;
     for (int i = 0; i < window_size; i++)
     {
@@ -115,38 +112,42 @@ __global__ void Process_uchar(cudaTextureObject_t src_tex_Y, cudaTextureObject_t
             bool flag = (r >= 0 && r < width && c >= 0 && c < height);
             if (flag)
             {
-                du=tex2D<float>(src_tex_U, r, c) - u_chroma;
-                dv=tex2D<float>(src_tex_V, r, c) - v_chroma;
+                du=(tex2D<float>(src_tex_U, r, c)*255.0f) - u_chroma;
+                dv=(tex2D<float>(src_tex_V, r, c)*255.0f) - v_chroma;
                 diff += root((du * du + dv * dv) / (255.0f * 255.0f * 2.f) );
                 counter++;
             }
         }
     }
-    diff/=float(counter);
+    if(counter>0)
+    {
+        diff=diff/counter;
+    }
+    else
+    {
+        diff/=9.0f;
+    }
     
     
     int u_index, v_index;
     v_index = u_index = y * pitch_uv + x;
-    float similarity = 0.1;
 
    
-    if(diff > similarity)
+    if(diff < similarity) //it is chroma
     {
-        //blue
-    dst_Y[y_index] = 43; // put the result of convolution of the pixel in output imag
-    //make the UV channels blue 
-    dst_U[u_index] = 245;
+        //white
+    dst_Y[y_index] = 255;
+    dst_U[u_index] = 128;
     dst_V[v_index] = 128;
     
     }
-    else{
-        //red
-        dst_Y[y_index] = 78;//tex2D<float>(src_tex_Y, x, y)*255;
-        dst_U[u_index] = 55;//tex2D<float>(src_tex_U, x, y)*255;
-        dst_V[v_index] = 254;//tex2D<float>(src_tex_V, x, y)*255;
+    else{ //not chroma
+        //black
+        dst_Y[y_index] = 0;
+        dst_U[u_index] = 128;
+        dst_V[v_index] = 128;
     }
     
-    //dst_Y[y_index] = temp; // put the result of convolution of the pixel in output image
 
 
     
@@ -213,7 +214,14 @@ __global__ void Process_uchar2(cudaTextureObject_t src_tex_Y, cudaTextureObject_
             }
         }
     }
-    diff/=float(counter);
+    if(counter>0)
+    {
+        diff=diff/counter;
+    }
+    else
+    {
+        diff/=9.0f;
+    }
     
     
     int u_index, uv_index;
@@ -222,25 +230,19 @@ __global__ void Process_uchar2(cudaTextureObject_t src_tex_Y, cudaTextureObject_
     
 
    
-    if(diff > similarity)   //it is chroma 
+    if(diff < similarity)   //it is chroma 
     {
     
-        //black
-        dst_Y[y_index] = 0; 
-        //make the UV hannels black 
+        //white
+        dst_Y[y_index] = 255; 
         dst_UV[uv_index] = make_uchar2(128,128);
     
     }
     else    // it is not chroma
     {
-        //white
-    dst_Y[y_index] = 255; 
-    //make the UV channels white 
+        //black
+    dst_Y[y_index] = 0; 
     dst_UV[uv_index] = make_uchar2(128,128);
-
-   
-    
-       
 
     }
 
