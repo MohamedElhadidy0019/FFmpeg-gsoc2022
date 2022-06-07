@@ -192,7 +192,7 @@ __global__ void Process_uchar2(cudaTextureObject_t src_tex_Y, cudaTextureObject_
   
     int counter=0;
     float diff=0.0f;
-    int du,dv;
+    float du,dv;
 
     //this loop covers the eight neghbour of the pixel
     for (int i = 0; i < window_size; i++)
@@ -204,40 +204,39 @@ __global__ void Process_uchar2(cudaTextureObject_t src_tex_Y, cudaTextureObject_
             bool flag = r >= 0 && r < width && c >= 0 && c < height;
             if (flag)
             {
-                uchar2 uv=tex2D<uchar2>(src_tex_UV, r, c)*255;
+                float2 uv=tex2D<float2>(src_tex_UV, r, c)*255.0f;
 
                 du=uv.x - u_chroma;
                 dv=uv.y - v_chroma;
-                diff += root(  (du * du + dv * dv) / (255.f * 255.f * 2.f)    );
+                diff += root(  (du * du + dv * dv) / (255.0f * 255.0f * 2.0f)    );
                 counter++;
             }
         }
     }
-    //diff/=float(counter);
-    diff/=9.f;
+    diff/=float(counter);
     
     
-    int u_index, v_index;
-    v_index = u_index = y * pitch_uv + x;
+    int u_index, uv_index;
+    uv_index = u_index = y * pitch_uv + x;
 
     
 
    
-    if(diff < similarity)   //it is chroma 
+    if(diff > similarity)   //it is chroma 
     {
     
         //black
-        dst_Y[y*pitch +x] = 0; 
-        //make the UV channels black 
-        dst_UV[y*pitch_uv +x] = make_uchar2(128,128);
+        dst_Y[y_index] = 0; 
+        //make the UV hannels black 
+        dst_UV[uv_index] = make_uchar2(128,128);
     
     }
     else    // it is not chroma
     {
         //white
-    dst_Y[y*pitch +x] = 255; 
+    dst_Y[y_index] = 255; 
     //make the UV channels white 
-    dst_UV[y*pitch_uv +x] = make_uchar2(128,128);
+    dst_UV[uv_index] = make_uchar2(128,128);
 
    
     
