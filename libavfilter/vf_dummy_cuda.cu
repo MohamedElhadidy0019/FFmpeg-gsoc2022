@@ -131,19 +131,50 @@ __global__ void Process_uchar(cudaTextureObject_t src_tex_Y, cudaTextureObject_t
     
     int u_index, v_index;
     v_index = u_index = y * pitch_uv + x;
+    int new_size=2;
 
    
     if(diff < similarity) //it is chroma
     {
         //white
-    dst_Y[y_index] = 255;
+    //dst_Y[y_index] = 255;
+
+    for(int k=0;k<new_size;k++)
+        {
+            for(int l=0;l<new_size;l++)
+            {
+                int x_resize=x*new_size+k;
+                int y_resize=y*new_size+l;
+                int y_channel_resize=y_resize*pitch+x_resize;
+                if (y_resize >= height || x_resize >= width)
+                    continue;;
+
+                dst_Y[y_channel_resize] = 255; 
+
+            }
+        }   
+
     dst_U[u_index] = 128;
     dst_V[v_index] = 128;
     
     }
     else{ //not chroma
         //black
-        dst_Y[y_index] = 0;
+        //dst_Y[y_index] = 0;
+        for(int k=0;k<new_size;k++)
+        {
+            for(int l=0;l<new_size;l++)
+            {
+                int x_resize=x*new_size+k;
+                int y_resize=y*new_size+l;
+                int y_channel_resize=y_resize*pitch+x_resize;
+                if (y_resize >= height || x_resize >= width)
+                    continue;;
+
+                dst_Y[y_channel_resize] = 0; 
+
+            }
+        }   
         dst_U[u_index] = 128;
         dst_V[v_index] = 128;
     }
@@ -229,20 +260,49 @@ __global__ void Process_uchar2(cudaTextureObject_t src_tex_Y, cudaTextureObject_
 
     
 
-   
+   int new_size=2;
     if(diff < similarity)   //it is chroma 
     {
     
         //white
-        dst_Y[y_index] = 255; 
+        //dst_Y[y_index] = 255; 
+        for(int k=0;k<new_size;k++)
+        {
+            for(int l=0;l<new_size;l++)
+            {
+                int x_resize=x*new_size+k;
+                int y_resize=y*new_size+l;
+                int y_channel_resize=y_resize*pitch+x_resize;
+                if (y_resize >= height || x_resize >= width)
+                    continue;;
+
+                dst_Y[y_channel_resize] = 255; 
+
+            }
+        }   
+
         dst_UV[uv_index] = make_uchar2(128,128);
     
     }
     else    // it is not chroma
     {
         //black
-    dst_Y[y_index] = 0; 
-    dst_UV[uv_index] = make_uchar2(128,128);
+        //dst_Y[y_index] = 0; 
+        for(int k=0;k<new_size;k++)
+        {
+            for(int l=0;l<new_size;l++)
+            {
+                int x_resize=x*new_size+k;
+                int y_resize=y*new_size+l;
+                if (y_resize >= height || x_resize >= width)
+                    continue;;
+                int y_channel_resize=y_resize*pitch+x_resize;
+                dst_Y[y_channel_resize] = 0; 
+
+
+            }
+        }   
+        dst_UV[uv_index] = make_uchar2(128,128);
 
     }
 
