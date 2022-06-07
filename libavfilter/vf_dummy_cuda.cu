@@ -27,30 +27,16 @@ extern "C" {
 
 
 
-// __device__ int julia( int x, int y ) {
-//  const float scale = 1.5;
-//  float jx = scale * (float)(DIM/2 - x)/(DIM/2);
-//  float jy = scale * (float)(DIM/2 - y)/(DIM/2);
-//  cuComplex c(-0.8, 0.156);
-//  cuComplex a(jx, jy);
-//  int i = 0;
-//  for (i=0; i<200; i++) {
-//  a = a * a + c;
-//  if (a.magnitude2() > 1000)
-//  return 0;
-//  }
-//  return 1; 
-// }
 
-__device__ double minnn(double a, double b) {
+__device__ float minnn(float a, float b) {
   return a < b ? a : b;
 }
-__device__ double maxxx(double a, double b) {
+__device__ float maxxx(float a, float b) {
   return a > b ? a : b;
 }
-__device__ double root(double n){
+__device__ float root(float n){
   // Max and minnn are used to take into account numbers less than 1
-  double lo = minnn(1.0, n), hi = maxxx(1.0, n), mid;
+  float lo = minnn(1.0, n), hi = maxxx(1.0, n), mid;
 
   // Update the bounds to be off the target by a factor of 10
   while(100 * lo * lo < n) lo *= 10;
@@ -69,7 +55,8 @@ __device__ double root(double n){
 
 
 /*
-function description : function convolves the edge detector laplacian operator with the image
+function description : function convolves the edge detector 
+                        laplacian operator with the image
 
 input :
     src_tex_Y: Y channel of source image normallized to [0,1]
@@ -92,7 +79,7 @@ __global__ void Process_uchar(cudaTextureObject_t src_tex_Y, cudaTextureObject_t
                               int width_uv, int height_uv, int pitch_uv)
 {
    
-
+    int hh=0;
     int window_size = 3; //size of window that we take its sum
     int x = blockIdx.x * blockDim.x + threadIdx.x; // x coordinate of current pixel
     int y = blockIdx.y * blockDim.y + threadIdx.y; // y coordinate of current pixel
@@ -107,7 +94,6 @@ __global__ void Process_uchar(cudaTextureObject_t src_tex_Y, cudaTextureObject_t
 
     int start_r = x - window_size / 2;
     int start_c = y - window_size / 2;
-    int temp = 0; 
 
    
     //green color
@@ -126,12 +112,12 @@ __global__ void Process_uchar(cudaTextureObject_t src_tex_Y, cudaTextureObject_t
         {
             int r = start_r + i;
             int c = start_c + j;
-            bool flag = r >= 0 && r < width && c >= 0 && c < height;
+            bool flag = (r >= 0 && r < width && c >= 0 && c < height);
             if (flag)
             {
                 du=tex2D<float>(src_tex_U, r, c) - u_chroma;
                 dv=tex2D<float>(src_tex_V, r, c) - v_chroma;
-                diff += root((du * du + dv * dv) / (255.0 * 255.0 * 2) );
+                diff += root((du * du + dv * dv) / (255.0f * 255.0f * 2.f) );
                 counter++;
             }
         }
@@ -180,7 +166,7 @@ __global__ void Process_uchar2(cudaTextureObject_t src_tex_Y, cudaTextureObject_
 {
 
   
-    int window_size = 3; //size of convolution kernel (kernel dimesnion is size * size)
+    int window_size = 3; //size of window 
     int x = blockIdx.x * blockDim.x + threadIdx.x; // x coordinate of current pixel
     int y = blockIdx.y * blockDim.y + threadIdx.y; // y coordinate of current pixel
     
@@ -198,14 +184,15 @@ __global__ void Process_uchar2(cudaTextureObject_t src_tex_Y, cudaTextureObject_
 
     
     //green color
-    float u_chroma=48.0;
-    float v_chroma=45.0;
+    float u_chroma=48.0f;
+    float v_chroma=45.0f;
+    float similarity = 0.22f;
 
 
   
     int counter=0;
-    double diff=0.0;
-    float du,dv;
+    float diff=0.0f;
+    int du,dv;
 
     //this loop covers the eight neghbour of the pixel
     for (int i = 0; i < window_size; i++)
@@ -221,39 +208,40 @@ __global__ void Process_uchar2(cudaTextureObject_t src_tex_Y, cudaTextureObject_
 
                 du=uv.x - u_chroma;
                 dv=uv.y - v_chroma;
-                diff += root(  (du * du + dv * dv) / (255.0 * 255.0 * 2))  ;
+                diff += root(  (du * du + dv * dv) / (255.f * 255.f * 2.f)    );
                 counter++;
             }
         }
     }
-    diff/=float(counter);
+    //diff/=float(counter);
+    diff/=9.f;
     
     
     int u_index, v_index;
     v_index = u_index = y * pitch_uv + x;
 
     
-    float similarity = 0.22;
 
    
-    if(diff < similarity)
+    if(diff < similarity)   //it is chroma 
     {
     
         //black
-        dst_Y[y_index] = 0; 
+        dst_Y[y*pitch +x] = 0; 
         //make the UV channels black 
-        dst_UV[u_index] = make_uchar2(128,128);
+        dst_UV[y*pitch_uv +x] = make_uchar2(128,128);
     
     }
-    else
+    else    // it is not chroma
     {
         //white
-    dst_Y[y_index] = 255; // put the result of convolution of the pixel in output imag
+    dst_Y[y*pitch +x] = 255; 
     //make the UV channels white 
-    dst_UV[u_index] = make_uchar2(128,128);
+    dst_UV[y*pitch_uv +x] = make_uchar2(128,128);
 
    
     
+       
 
     }
 
