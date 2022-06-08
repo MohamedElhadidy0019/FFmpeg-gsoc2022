@@ -57,7 +57,7 @@ extern "C"
         return mid;
     }
 
-    __device__ static inline bool is_transparent(cudaTextureObject_t src_tex,
+    __device__ static inline bool get_alpha_value(cudaTextureObject_t src_tex,
                             cudaTextureObject_t src_tex_V,
                             int width_uv, int height_uv,
                             int x, int y, float2 chromakey_uv,
@@ -112,7 +112,7 @@ extern "C"
             diff /= 9.0f;
         }
 
-        return diff < similarity ? true : false;
+        return diff < similarity ? 0 : 1;
     }
 
     /*
@@ -157,14 +157,14 @@ extern "C"
         float u_chroma = 48.0f;
         float v_chroma = 45.0f;
         float similarity = 0.20f;
-        bool flag_alpha=is_transparent(src_tex_U,src_tex_V,width_uv,height_uv,x,y,make_float2(u_chroma,v_chroma),similarity,true);
+        bool alpha_value=get_alpha_value(src_tex_U,src_tex_V,width_uv,height_uv,x,y,make_float2(u_chroma,v_chroma),similarity,true);
 
 
         int u_index, v_index;
         v_index = u_index = y * pitch_uv + x;
         int new_size = 2;
 
-        if (flag_alpha) // it is chroma
+        if (!alpha_value) // it is chroma
         {
             // white
             // dst_Y[y_index] = 255;
@@ -180,7 +180,7 @@ extern "C"
                         continue;
                     ;
 
-                    dst_Y[y_channel_resize] = 255;
+                    dst_Y[y_channel_resize] = 0;
                 }
             }
 
@@ -202,7 +202,7 @@ extern "C"
                         continue;
                     ;
 
-                    dst_Y[y_channel_resize] = 0;
+                    dst_Y[y_channel_resize] = 255;
                 }
             }
             dst_U[u_index] = 128;
@@ -241,7 +241,7 @@ extern "C"
         int counter = 0;
         float diff = 0.0f;
         float du, dv;
-        bool flag_alpha=is_transparent(src_tex_UV,unused1,width_uv,height_uv,x,y,make_float2(u_chroma,v_chroma),similarity,true);
+        bool alpha_value=get_alpha_value(src_tex_UV,unused1,width_uv,height_uv,x,y,make_float2(u_chroma,v_chroma),similarity,true);
         
         
 
@@ -249,7 +249,7 @@ extern "C"
         uv_index = u_index = y * pitch_uv + x;
 
         int new_size = 2;
-        if (flag_alpha) // it is chroma
+        if (!alpha_value) // it is chroma
         {
 
             // white
@@ -265,7 +265,7 @@ extern "C"
                         continue;
                     ;
 
-                    dst_Y[y_channel_resize] = 255;
+                    dst_Y[y_channel_resize] = 0;
                 }
             }
 
@@ -285,7 +285,7 @@ extern "C"
                         continue;
                     ;
                     int y_channel_resize = y_resize * pitch + x_resize;
-                    dst_Y[y_channel_resize] = 0;
+                    dst_Y[y_channel_resize] = 255;
                 }
             }
             dst_UV[uv_index] = make_uchar2(128, 128);
