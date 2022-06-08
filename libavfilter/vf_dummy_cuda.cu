@@ -150,9 +150,7 @@ extern "C"
 
         int y_index = y * pitch + x; // index of current pixel in sourceY , access the 1d array as a 2d one
 
-        int start_r = x - window_size / 2;
-        int start_c = y - window_size / 2;
-
+    
         // green color
         float u_chroma = 48.0f;
         float v_chroma = 45.0f;
@@ -229,21 +227,16 @@ extern "C"
 
         int y_index = y * pitch + x; // index of current pixel in sourceY , access the 1d array as a 2d one
 
-        int start_r = x - window_size / 2;
-        int start_c = y - window_size / 2;
-        int temp = 0;
 
         // green color
         float u_chroma = 48.0f;
         float v_chroma = 45.0f;
         float similarity = 0.22f;
 
-        int counter = 0;
-        float diff = 0.0f;
-        float du, dv;
         bool alpha_value=get_alpha_value(src_tex_UV,unused1,width_uv,height_uv,x,y,make_float2(u_chroma,v_chroma),similarity,true);
         
         
+
 
         int u_index, uv_index;
         uv_index = u_index = y * pitch_uv + x;
@@ -252,8 +245,7 @@ extern "C"
         if (!alpha_value) // it is chroma
         {
 
-            // white
-            // dst_Y[y_index] = 255;
+           
             for (int k = 0; k < new_size; k++)
             {
                 for (int l = 0; l < new_size; l++)
@@ -273,8 +265,7 @@ extern "C"
         }
         else // it is not chroma
         {
-            // black
-            // dst_Y[y_index] = 0;
+            
             for (int k = 0; k < new_size; k++)
             {
                 for (int l = 0; l < new_size; l++)
