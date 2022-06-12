@@ -134,7 +134,7 @@ extern "C"
     */
 
     __global__ void Process_uchar(cudaTextureObject_t src_tex_Y, cudaTextureObject_t src_tex_U, cudaTextureObject_t src_tex_V,
-                                  uchar *dst_Y, uchar *dst_U, uchar *dst_V,
+                                  uchar *dst_Y, uchar *dst_U, uchar *dst_V,uchar *dst_A,
                                   int width, int height, int pitch,
                                   int width_uv, int height_uv, int pitch_uv)
     {
@@ -184,6 +184,7 @@ extern "C"
 
             dst_U[u_index] = 128;
             dst_V[v_index] = 128;
+            dst_A[u_index] = 255;
         }
         else
         { // not chroma
@@ -205,13 +206,14 @@ extern "C"
             }
             dst_U[u_index] = 128;
             dst_V[v_index] = 128;
+            dst_A[u_index] = 0;
         }
     }
 
     // function to prtotoype chroma keing
 
     __global__ void Process_uchar2(cudaTextureObject_t src_tex_Y, cudaTextureObject_t src_tex_UV, cudaTextureObject_t unused1,
-                                   uchar *dst_Y, uchar2 *dst_UV, uchar *unused2,
+                                   uchar *dst_Y, uchar *dst_U, uchar *dst_V,uchar *dst_A,
                                    int width, int height, int pitch,
                                    int width_uv, int height_uv, int pitch_uv)
     {
@@ -261,7 +263,9 @@ extern "C"
                 }
             }
 
-            dst_UV[uv_index] = make_uchar2(128, 128);
+            dst_U[uv_index] = 128;
+            dst_V[uv_index] = 128;
+            dst_A[uv_index] = 255;
         }
         else // it is not chroma
         {
@@ -279,7 +283,10 @@ extern "C"
                     dst_Y[y_channel_resize] = 255;
                 }
             }
-            dst_UV[uv_index] = make_uchar2(128, 128);
+
+            dst_U[uv_index] = 128;
+            dst_V[uv_index] = 128;
+            dst_A[uv_index] = 0;
         }
     }
 }

@@ -44,6 +44,9 @@ static const enum AVPixelFormat supported_formats[] = {
     AV_PIX_FMT_YUV420P,
     AV_PIX_FMT_NV12,
     AV_PIX_FMT_YUV444P,
+    AV_PIX_FMT_YUVA420P,
+    AV_PIX_FMT_YUVA422P
+
 };
 
 #define DIV_UP(a, b) ( ((a) + (b) - 1) / (b) )
@@ -201,7 +204,8 @@ static av_cold int init_processing_chain(AVFilterContext *ctx, int width, int he
         return AVERROR(ENOSYS);
     }
 
-    set_format_info(ctx, in_frames_ctx->sw_format, in_frames_ctx->sw_format);
+    //set_format_info(ctx, in_frames_ctx->sw_format, in_frames_ctx->sw_format);
+    set_format_info(ctx, in_frames_ctx->sw_format,AV_PIX_FMT_YUVA420P );
 
     ret = init_hwframe_ctx(s, in_frames_ctx->device_ref, width, height);
     if (ret < 0)
@@ -285,13 +289,15 @@ static int call_cuda_kernel(AVFilterContext *ctx, CUfunction func,
     CudaFunctions *cu = s->hwctx->internal->cuda_dl;
     int ret;
 
-    CUdeviceptr dst_devptr[3] = {
-        (CUdeviceptr)out_frame->data[0], (CUdeviceptr)out_frame->data[1], (CUdeviceptr)out_frame->data[2]
+    CUdeviceptr dst_devptr[4] = {
+        (CUdeviceptr)out_frame->data[0], (CUdeviceptr)out_frame->data[1],
+         (CUdeviceptr)out_frame->data[2], (CUdeviceptr)out_frame->data[3]
+
     };
 
     void *args_uchar[] = {
         &src_tex[0], &src_tex[1], &src_tex[2],
-        &dst_devptr[0], &dst_devptr[1], &dst_devptr[2],
+        &dst_devptr[0], &dst_devptr[1], &dst_devptr[2],&dst_devptr[3],
         &width, &height, &pitch,
         &width_uv, &height_uv, &pitch_uv
     };
