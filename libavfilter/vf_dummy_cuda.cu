@@ -112,7 +112,7 @@ extern "C"
             diff /= 9.0f;
         }
 
-        return diff < similarity ? 0 : 1;
+        return diff < similarity ? 1 : 0;
     }
 
     /*
