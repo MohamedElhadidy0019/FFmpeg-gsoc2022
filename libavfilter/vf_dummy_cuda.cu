@@ -145,6 +145,7 @@ extern "C"
 
         if (y >= height || x >= width)
             return;
+        dst_Y[y * pitch + x] = tex2D<float>(src_tex_Y, x, y)*255;
         if (y >= height_uv || x >= width_uv)
             return;
 
@@ -161,7 +162,8 @@ extern "C"
         int u_index, v_index;
         v_index = u_index = y * pitch_uv + x;
         int new_size = 2;
-
+        dst_U[u_index]=tex2D<float>(src_tex_U,x,y)*255;
+        dst_V[v_index]=tex2D<float>(src_tex_V,x,y)*255;
         if (!alpha_value) // it is chroma
         {
             // white
@@ -176,15 +178,15 @@ extern "C"
                     int y_channel_resize = y_resize * pitch + x_resize;
                     if (y_resize >= height || x_resize >= width)
                         continue;
-                    ;
+                    
 
-                    dst_Y[y_channel_resize] = 0;
+                    dst_A[y_channel_resize] = 255;
                 }
             }
 
-            dst_U[u_index] = 128;
-            dst_V[v_index] = 128;
-            dst_A[u_index] = 255;
+            //dst_U[u_index] = 128;
+            //dst_V[v_index] = 128;
+            //dst_A[u_index] = 255;
         }
         else
         { // not chroma
@@ -199,14 +201,14 @@ extern "C"
                     int y_channel_resize = y_resize * pitch + x_resize;
                     if (y_resize >= height || x_resize >= width)
                         continue;
-                    ;
+                    
 
-                    dst_Y[y_channel_resize] = 255;
+                    dst_A[y_channel_resize] = 0;
                 }
             }
-            dst_U[u_index] = 128;
-            dst_V[v_index] = 128;
-            dst_A[u_index] = 0;
+            //dst_U[u_index] = 128;
+            //dst_V[v_index] = 128;
+            //dst_A[u_index] = 0;
         }
     }
 
@@ -224,6 +226,8 @@ extern "C"
 
         if (y >= height || x >= width)
             return;
+        dst_Y[y * pitch + x] = tex2D<float>(src_tex_Y, x, y)*255;
+
         if (y >= height_uv || x >= width_uv)
             return;
 
@@ -242,7 +246,9 @@ extern "C"
 
         int u_index, uv_index;
         uv_index = u_index = y * pitch_uv + x;
-
+        float2 temp_uv=tex2D<float2>(src_tex_UV,x,y);
+        dst_U[u_index]=(temp_uv.x)*255;
+        dst_V[uv_index]=(temp_uv.y)*255;
         int new_size = 2;
         if (!alpha_value) // it is chroma
         {
@@ -257,15 +263,15 @@ extern "C"
                     int y_channel_resize = y_resize * pitch + x_resize;
                     if (y_resize >= height || x_resize >= width)
                         continue;
-                    ;
+                    
 
-                    dst_Y[y_channel_resize] = 0;
+                    dst_A[y_channel_resize] =255;
                 }
             }
 
-            dst_U[uv_index] = 128;
-            dst_V[uv_index] = 128;
-            dst_A[uv_index] = 255;
+            // dst_U[uv_index] = 128;
+            // dst_V[uv_index] = 128;
+            // dst_A[uv_index] = 255;
         }
         else // it is not chroma
         {
@@ -278,15 +284,15 @@ extern "C"
                     int y_resize = y * new_size + l;
                     if (y_resize >= height || x_resize >= width)
                         continue;
-                    ;
+                    
                     int y_channel_resize = y_resize * pitch + x_resize;
-                    dst_Y[y_channel_resize] = 255;
+                    dst_A[y_channel_resize] = 0;
                 }
             }
 
-            dst_U[uv_index] = 128;
-            dst_V[uv_index] = 128;
-            dst_A[uv_index] = 0;
+            // dst_U[uv_index] = 128;
+            // dst_V[uv_index] = 128;
+            // dst_A[uv_index] = 0;
         }
     }
 }
