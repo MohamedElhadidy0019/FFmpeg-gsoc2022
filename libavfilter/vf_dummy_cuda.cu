@@ -145,8 +145,12 @@ extern "C"
 
         if (y >= height || x >= width)
             return;
+        dst_Y[y*pitch + x] = tex2D<float>(src_tex_Y, x, y) * 255;
+
         if (y >= height_uv || x >= width_uv)
             return;
+        dst_U[y*pitch_uv + x] = tex2D<float>(src_tex_U, x, y) * 255;
+        dst_V[y*pitch_uv + x] = tex2D<float>(src_tex_V, x, y) * 255;
 
         int y_index = y * pitch + x; // index of current pixel in sourceY , access the 1d array as a 2d one
 
@@ -164,48 +168,10 @@ extern "C"
 
         if (!alpha_value) // it is chroma
         {
-            // white
-            // dst_Y[y_index] = 255;
-
-            for (int k = 0; k < new_size; k++)
-            {
-                for (int l = 0; l < new_size; l++)
-                {
-                    int x_resize = x * new_size + k;
-                    int y_resize = y * new_size + l;
-                    int y_channel_resize = y_resize * pitch + x_resize;
-                    if (y_resize >= height || x_resize >= width)
-                        continue;
-                    ;
-
-                    dst_Y[y_channel_resize] = 0;
-                }
-            }
-
-            dst_U[u_index] = 128;
-            dst_V[v_index] = 128;
             dst_A[u_index] = 255;
         }
         else
-        { // not chroma
-            // black
-            // dst_Y[y_index] = 0;
-            for (int k = 0; k < new_size; k++)
-            {
-                for (int l = 0; l < new_size; l++)
-                {
-                    int x_resize = x * new_size + k;
-                    int y_resize = y * new_size + l;
-                    int y_channel_resize = y_resize * pitch + x_resize;
-                    if (y_resize >= height || x_resize >= width)
-                        continue;
-                    ;
-
-                    dst_Y[y_channel_resize] = 255;
-                }
-            }
-            dst_U[u_index] = 128;
-            dst_V[v_index] = 128;
+        { 
             dst_A[u_index] = 0;
         }
     }
@@ -224,6 +190,8 @@ extern "C"
 
         if (y >= height || x >= width)
             return;
+        dst_Y[y*pitch + x] = tex2D<float>(src_tex_Y, x, y) * 255;
+
         if (y >= height_uv || x >= width_uv)
             return;
 
@@ -235,7 +203,7 @@ extern "C"
         float v_chroma = 45.0f;
         float similarity = 0.22f;
 
-        bool alpha_value=get_alpha_value(src_tex_UV,unused1,width_uv,height_uv,x,y,make_float2(u_chroma,v_chroma),similarity,true);
+        bool alpha_value=!get_alpha_value(src_tex_UV,unused1,width_uv,height_uv,x,y,make_float2(u_chroma,v_chroma),similarity,true);
         
         
 
@@ -243,49 +211,14 @@ extern "C"
         int u_index, uv_index;
         uv_index = u_index = y * pitch_uv + x;
 
-        int new_size = 2;
+        dst_U[y*pitch_uv + x] = tex2D<float2>(src_tex_UV, x, y).x * 255;
+        dst_V[y*pitch_uv + x] = tex2D<float2>(src_tex_UV, x, y).y * 255;
         if (!alpha_value) // it is chroma
         {
-
-           
-            for (int k = 0; k < new_size; k++)
-            {
-                for (int l = 0; l < new_size; l++)
-                {
-                    int x_resize = x * new_size + k;
-                    int y_resize = y * new_size + l;
-                    int y_channel_resize = y_resize * pitch + x_resize;
-                    if (y_resize >= height || x_resize >= width)
-                        continue;
-                    ;
-
-                    dst_Y[y_channel_resize] = 0;
-                }
-            }
-
-            dst_U[uv_index] = 128;
-            dst_V[uv_index] = 128;
             dst_A[uv_index] = 255;
         }
         else // it is not chroma
         {
-            
-            for (int k = 0; k < new_size; k++)
-            {
-                for (int l = 0; l < new_size; l++)
-                {
-                    int x_resize = x * new_size + k;
-                    int y_resize = y * new_size + l;
-                    if (y_resize >= height || x_resize >= width)
-                        continue;
-                    ;
-                    int y_channel_resize = y_resize * pitch + x_resize;
-                    dst_Y[y_channel_resize] = 255;
-                }
-            }
-
-            dst_U[uv_index] = 128;
-            dst_V[uv_index] = 128;
             dst_A[uv_index] = 0;
         }
     }
