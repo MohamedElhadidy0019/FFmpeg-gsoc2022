@@ -112,46 +112,22 @@ extern "C"
             diff /= 9.0f;
         }
 
-        bool alpha_value=diff < similarity ? 1 : 0;
+        int  alpha_value=(diff < similarity ? 0 : 1)*255;
+        
         int new_size=2;
-        if (!alpha_value) // it is chroma
+       
+        for (int k = 0; k < new_size; k++)
         {
-            // white
-            // dst_Y[y_index] = 255;
-
-            for (int k = 0; k < new_size; k++)
+            for (int l = 0; l < new_size; l++)
             {
-                for (int l = 0; l < new_size; l++)
-                {
-                    int x_resize = x * new_size + k;
-                    int y_resize = y * new_size + l;
-                    int y_channel_resize = y_resize * pitch + x_resize;
-                    if (y_resize >= height || x_resize >= width)
-                        continue;
-                    
+                int x_resize = x * new_size + k;
+                int y_resize = y * new_size + l;
+                int y_channel_resize = y_resize * pitch + x_resize;
+                if (y_resize >= height || x_resize >= width)
+                    continue;
+                
 
-                    dst_A[y_channel_resize] = 255;
-                }
-            }
-
-        }
-        else
-        { // not chroma
-            // black
-            // dst_Y[y_index] = 0;
-            for (int k = 0; k < new_size; k++)
-            {
-                for (int l = 0; l < new_size; l++)
-                {
-                    int x_resize = x * new_size + k;
-                    int y_resize = y * new_size + l;
-                    int y_channel_resize = y_resize * pitch + x_resize;
-                    if (y_resize >= height || x_resize >= width)
-                        continue;
-                    
-
-                    dst_A[y_channel_resize] = 0;
-                }
+                dst_A[y_channel_resize] = alpha_value;
             }
         }
 

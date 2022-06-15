@@ -1,22 +1,13 @@
-./ffmpeg -y \
--hwaccel cuda -hwaccel_output_format cuda -i input_green.mp4 -vf \
--hwaccel cuda -hwaccel_output_format cuda -i static_blue.mp4 -vf \
+./ffmpeg -v verbose \
+-hwaccel cuda -hwaccel_output_format cuda -i input_green.mp4  \
+-hwaccel cuda -hwaccel_output_format cuda -i static_blue.mp4 \
+-init_hw_device cuda \
 -filter_complex \
-
 " \
-[0:v]dummy_cuda[base];
-[1:v]scale_npp=640:-2:format=nv12[overlay_video];
+[0:v]scale_cuda=format=yuv420p,dummy_cuda[overlay_video];
+[1:v]scale_cuda=format=yuv420p[base];
 [base][overlay_video]overlay_cuda" \
--an -c:v h264_nvenc overlay_test.mp4
+-an -sn -c:v h264_nvenc -cq 20 overlay_test.mp4
 
-
-#-an -c:v h264_nvenc overlay_test.mp4
-
-
-
-# " \
-# [0:v]dummy_cuda[base];
-# [1:v]format=nv12[overlay_video];
-# [base][overlay_video]overlay_cuda=x=640:y=0" \
-
-./ffmpeg -v verbose -hwaccel cuda -hwaccel_output_format cuda -init_hw_device cuda -i input_green.mp4 -vf dummy_cuda -an -sn -c:v h264_nvenc -cq 20 -t 00:00:30 -y output.mp4
+mpv overlay_test.mp4
+#scale_cuda=format=yuv420p,dummy_cuda

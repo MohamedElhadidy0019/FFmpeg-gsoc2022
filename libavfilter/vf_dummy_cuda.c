@@ -360,7 +360,7 @@ static int cudadummy_process_internal(AVFilterContext *ctx,
                            out->width, out->height, out->linesize[0],
                            AV_CEIL_RSHIFT(out->width, s->out_desc->log2_chroma_w),
                            AV_CEIL_RSHIFT(out->height, s->out_desc->log2_chroma_h),
-                           out->linesize[1] >> ((s->in_plane_channels[1] > 1) ? 1 : 0));
+                           out->linesize[1] );
     if (ret < 0)
         goto exit;
 
