@@ -25,30 +25,6 @@
 extern "C"
 {
 
-    __device__ float root(float n)
-    {
-        // Max and minnn are used to take into account numbers less than 1
-        float lo = FFMIN(1.0, n), hi = FFMAX(1.0, n), mid;
-
-        // Update the bounds to be off the target by a factor of 10
-        while (100 * lo * lo < n)
-            lo *= 10;
-        while (0.01 * hi * hi > n)
-            hi *= 0.1;
-
-        for (int i = 0; i < 100; i++)
-        {
-            mid = (lo + hi) / 2;
-            if (mid * mid == n)
-                return mid;
-            if (mid * mid > n)
-                hi = mid;
-            else
-                lo = mid;
-        }
-        return mid;
-    }
-
     __device__ static inline void change_alpha_channel(cudaTextureObject_t src_tex,
                             cudaTextureObject_t src_tex_V,uchar *dst_A,
                             int width_uv, int height_uv,int width,int height,int pitch,
@@ -70,9 +46,9 @@ extern "C"
             {
                 int r = start_r + i;
                 int c = start_c + j;
-                bool flag = (r >= 0 && r < width_uv && c >= 0 && c < height_uv);
+                bool check_flag = (r >= 0 && r < width_uv && c >= 0 && c < height_uv);
 
-                if (!flag)
+                if (!check_flag)
                     continue;
 
                 float u_value, v_value;
@@ -90,7 +66,7 @@ extern "C"
 
                 du = (u_value * 255.0f) - chromakey_uv.x;
                 dv = (v_value * 255.0f) - chromakey_uv.y;
-                diff += root((du * du + dv * dv) / (255.0f * 255.0f * 2.f));
+                diff += sqrtf((du * du + dv * dv) / (255.0f * 255.0f * 2.f));
                 counter++;
             }
         }
@@ -106,7 +82,6 @@ extern "C"
 
         uchar  alpha_value;
         if(blend>0.0001f){
-            //alpha_value=AV_CLIPD_C((diff - similarity) / blend, 0.0f, 1.0f) * 255;
             alpha_value=__saturatef((diff - similarity) / blend)*255;
         }else{
             alpha_value=(diff < similarity ? 0 : 1)*255;
@@ -162,6 +137,10 @@ extern "C"
         dst_Y[y * pitch + x] = tex2D<float>(src_tex_Y, x, y)*255;
         if (y >= height_uv || x >= width_uv)
             return;
+        
+        int uv_index = y * pitch_uv + x;
+        dst_U[uv_index]=tex2D<float>(src_tex_U,x,y)*255;
+        dst_V[uv_index]=tex2D<float>(src_tex_V,x,y)*255;
 
 
     
@@ -172,10 +151,6 @@ extern "C"
         float blend = 0.12f;
 
 
-        int u_index, v_index;
-        v_index = u_index = y * pitch_uv + x;
-        dst_U[u_index]=tex2D<float>(src_tex_U,x,y)*255;
-        dst_V[v_index]=tex2D<float>(src_tex_V,x,y)*255;
 
         change_alpha_channel(src_tex_U,src_tex_V,
                             dst_A,width_uv,height_uv,
@@ -203,6 +178,10 @@ extern "C"
 
         if (y >= height_uv || x >= width_uv)
             return;
+        int uv_index= y * pitch_uv + x;
+        float2 uv_temp=tex2D<float2>(src_tex_UV,x,y);
+        dst_U[uv_index]=uv_temp.x*255;
+        dst_V[uv_index]=uv_temp.y*255;
 
 
         // green color
@@ -210,12 +189,6 @@ extern "C"
         float v_chroma = 45.0f;
         float similarity = 0.22f;
         float blend = 0.12f;
-        int u_index, v_index;
-        v_index = u_index = y * pitch_uv + x;
-
-        float2 uv_temp=tex2D<float2>(src_tex_UV,x,y);
-        dst_U[u_index]=uv_temp.x*255;
-        dst_V[v_index]=uv_temp.y*255;
         change_alpha_channel(src_tex_UV,(cudaTextureObject_t)nullptr,
                                 dst_A,width_uv,height_uv,
                                 width,height,pitch,

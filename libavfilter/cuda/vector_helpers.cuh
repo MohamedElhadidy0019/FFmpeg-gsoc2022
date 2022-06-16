@@ -110,21 +110,4 @@ inline __device__ float4 lerp_scalar<float4>(float4 v0, float4 v1, float t) {
 }
 
 
-#define av_always_inline __attribute__((always_inline)) inline
-
-
-#define FFMAX(a,b) ((a) > (b) ? (a) : (b))
-#define FFMAX3(a,b,c) FFMAX(FFMAX(a,b),c)
-#define FFMIN(a,b) ((a) > (b) ? (b) : (a))
-#define FFMIN3(a,b,c) FFMIN(FFMIN(a,b),c)
-#define AV_CLIPD_C(a,amin,amax) FFMIN(FFMAX(a, amin), amax)
-#   define av_clipd         av_clipd_c
-#    define av_const __attribute__((const))
-
-// __device__ av_always_inline av_const float av_clipd_c(float a, float amin, float amax)
-// {
-//     return FFMIN(FFMAX(a, amin), amax);
-// }
-
-
 #endif
