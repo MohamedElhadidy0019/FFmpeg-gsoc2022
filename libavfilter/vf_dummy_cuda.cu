@@ -25,18 +25,10 @@
 extern "C"
 {
 
-    __device__ float minnn(float a, float b)
-    {
-        return a < b ? a : b;
-    }
-    __device__ float maxxx(float a, float b)
-    {
-        return a > b ? a : b;
-    }
     __device__ float root(float n)
     {
         // Max and minnn are used to take into account numbers less than 1
-        float lo = minnn(1.0, n), hi = maxxx(1.0, n), mid;
+        float lo = FFMIN(1.0, n), hi = FFMAX(1.0, n), mid;
 
         // Update the bounds to be off the target by a factor of 10
         while (100 * lo * lo < n)
@@ -57,24 +49,24 @@ extern "C"
         return mid;
     }
 
-    __device__ static inline void get_alpha_value(cudaTextureObject_t src_tex,
+    __device__ static inline void change_alpha_channel(cudaTextureObject_t src_tex,
                             cudaTextureObject_t src_tex_V,uchar *dst_A,
                             int width_uv, int height_uv,int width,int height,int pitch,
                             int x, int y, float2 chromakey_uv,
-                            float similarity, bool is_uchar2)
+                            float similarity,float blend, bool is_uchar2,uchar resize_ratio)
     {
 
-        int window_size = 3;
+        uchar window_size = 3;
         int start_r = x - window_size / 2;
         int start_c = y - window_size / 2;
 
-        int counter = 0;
+        uchar counter = 0;
         float diff = 0.0f;
         float du, dv;
 
-        for (int i = 0; i < window_size; i++)
+        for (uchar i = 0; i < window_size; i++)
         {
-            for (int j = 0; j < window_size; j++)
+            for (uchar j = 0; j < window_size; j++)
             {
                 int r = start_r + i;
                 int c = start_c + j;
@@ -112,22 +104,25 @@ extern "C"
             diff /= 9.0f;
         }
 
-        int  alpha_value=(diff < similarity ? 0 : 1)*255;
+        uchar  alpha_value;
+        if(blend>0.0001f){
+            //alpha_value=AV_CLIPD_C((diff - similarity) / blend, 0.0f, 1.0f) * 255;
+            alpha_value=__saturatef((diff - similarity) / blend)*255;
+        }else{
+            alpha_value=(diff < similarity ? 0 : 1)*255;
+        }
         
-        int new_size=2;
        
-        for (int k = 0; k < new_size; k++)
+        for (uchar k = 0; k < resize_ratio; k++)
         {
-            for (int l = 0; l < new_size; l++)
+            for (uchar l = 0; l < resize_ratio; l++)
             {
-                int x_resize = x * new_size + k;
-                int y_resize = y * new_size + l;
-                int y_channel_resize = y_resize * pitch + x_resize;
+                int x_resize = x * resize_ratio + k;
+                int y_resize = y * resize_ratio + l;
+                int a_channel_resize = y_resize * pitch + x_resize;
                 if (y_resize >= height || x_resize >= width)
                     continue;
-                
-
-                dst_A[y_channel_resize] = alpha_value;
+                dst_A[a_channel_resize] = alpha_value;
             }
         }
 
@@ -158,7 +153,7 @@ extern "C"
                                   int width_uv, int height_uv, int pitch_uv)
     {
 
-        int window_size = 3;                           // size of window
+        int resize_ratio = 2;                           // size of window
         int x = blockIdx.x * blockDim.x + threadIdx.x; // x coordinate of current pixel
         int y = blockIdx.y * blockDim.y + threadIdx.y; // y coordinate of current pixel
 
@@ -174,13 +169,20 @@ extern "C"
         float u_chroma = 48.0f;
         float v_chroma = 45.0f;
         float similarity = 0.22f;
+        float blend = 0.12f;
 
 
         int u_index, v_index;
         v_index = u_index = y * pitch_uv + x;
         dst_U[u_index]=tex2D<float>(src_tex_U,x,y)*255;
         dst_V[v_index]=tex2D<float>(src_tex_V,x,y)*255;
-        get_alpha_value(src_tex_U,src_tex_V,dst_A,width_uv,height_uv,width,height,pitch,x,y,make_float2(u_chroma,v_chroma),similarity,false);
+
+        change_alpha_channel(src_tex_U,src_tex_V,
+                            dst_A,width_uv,height_uv,
+                            width,height,
+                            pitch,x,y,make_float2(u_chroma,v_chroma),
+                            similarity,blend,false,resize_ratio);
+
     }
 
     // function to prtotoype chroma keing
@@ -191,7 +193,7 @@ extern "C"
                                    int width_uv, int height_uv, int pitch_uv)
     {
 
-        int window_size = 3;                           // size of window
+        uchar resize_ratio = 2;                           // size of window
         int x = blockIdx.x * blockDim.x + threadIdx.x; // x coordinate of current pixel
         int y = blockIdx.y * blockDim.y + threadIdx.y; // y coordinate of current pixel
 
@@ -207,13 +209,19 @@ extern "C"
         float u_chroma = 48.0f;
         float v_chroma = 45.0f;
         float similarity = 0.22f;
-
+        float blend = 0.12f;
         int u_index, v_index;
         v_index = u_index = y * pitch_uv + x;
-        dst_U[u_index]=tex2D<float2>(src_tex_UV,x,y).x*255;
-        dst_V[v_index]=tex2D<float2>(src_tex_UV,x,y).y*255;
-        //get_alpha_value(src_tex_UV,unused1,dst_A,width_uv,height_uv,width,height,pitch,x,y,make_float2(u_chroma,v_chroma),similarity,true);
-        get_alpha_value(src_tex_UV,(cudaTextureObject_t)nullptr,dst_A,width_uv,height_uv,width,height,pitch,x,y,make_float2(u_chroma,v_chroma),similarity,true);
+
+        float2 uv_temp=tex2D<float2>(src_tex_UV,x,y);
+        dst_U[u_index]=uv_temp.x*255;
+        dst_V[v_index]=uv_temp.y*255;
+        change_alpha_channel(src_tex_UV,(cudaTextureObject_t)nullptr,
+                                dst_A,width_uv,height_uv,
+                                width,height,pitch,
+                                x,y,make_float2(u_chroma,v_chroma),
+                                similarity,blend,
+                                true,resize_ratio);
         
         
     }

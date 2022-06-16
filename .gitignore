@@ -44,3 +44,4 @@
 out_green.mp4
 ffmpeg_command.sh
 *.mp4
+.vscode/settings.json

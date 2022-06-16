@@ -1888,7 +1888,7 @@ HWACCEL_AUTODETECT_LIBRARY_LIST="
     audiotoolbox
     crystalhd
     cuda
-    cuda_llvm
+    cuda_nvcc 
     cuvid
     d3d11va
     dxva2
@@ -3146,7 +3146,7 @@ overlay_cuda_filter_deps="ffnvcodec"
 overlay_cuda_filter_deps_any="cuda_nvcc cuda_llvm"
 
 dummy_cuda_filter_deps="ffnvcodec"
-dummy_cuda_filter_deps_any="cuda_nvcc cuda_llvm"
+dummy_cuda_filter_deps_any="cuda_nvcc"
 
 
 sharpen_npp_filter_deps="ffnvcodec libnpp"
