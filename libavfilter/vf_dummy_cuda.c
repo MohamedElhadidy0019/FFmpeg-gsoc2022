@@ -40,6 +40,13 @@
 
 #include "cuda/load_helper.h"
 
+
+
+#define FIXNUM(x) lrint((x) * (1 << 10))
+#define RGB_TO_U(rgb) (((- FIXNUM(0.16874) * rgb[0] - FIXNUM(0.33126) * rgb[1] + FIXNUM(0.50000) * rgb[2] + (1 << 9) - 1) >> 10) + 128)
+#define RGB_TO_V(rgb) (((  FIXNUM(0.50000) * rgb[0] - FIXNUM(0.41869) * rgb[1] - FIXNUM(0.08131) * rgb[2] + (1 << 9) - 1) >> 10) + 128)
+
+
 static const enum AVPixelFormat supported_formats[] = {
     AV_PIX_FMT_YUV420P,
     AV_PIX_FMT_NV12,
@@ -65,6 +72,15 @@ typedef struct CUDADummyContext {
     int in_planes, out_planes;
     int in_plane_depths[4];
     int in_plane_channels[4];
+
+
+    uint8_t chromakey_rgba[4];
+    //uint16_t chromakey_uv[2];
+
+    float similarity;
+    float blend;
+
+
 
     AVBufferRef *frames_ctx;
     AVFrame     *frame;
@@ -282,7 +298,9 @@ static av_cold int cudadummy_config_props(AVFilterLink *outlink)
 static int call_cuda_kernel(AVFilterContext *ctx, CUfunction func,
                             CUtexObject src_tex[3], AVFrame *out_frame,
                             int width, int height, int pitch,
-                            int width_uv, int height_uv, int pitch_uv)
+                            int width_uv, int height_uv, int pitch_uv,
+                            float u_key,float v_key, float similarity,
+                            float blend )
 {
     CUDADummyContext *s = ctx->priv;
     CudaFunctions *cu = s->hwctx->internal->cuda_dl;
@@ -298,7 +316,7 @@ static int call_cuda_kernel(AVFilterContext *ctx, CUfunction func,
         &src_tex[0], &src_tex[1], &src_tex[2],
         &dst_devptr[0], &dst_devptr[1], &dst_devptr[2],&dst_devptr[3],
         &width, &height, &pitch,
-        &width_uv, &height_uv, &pitch_uv
+        &width_uv, &height_uv, &pitch_uv,&u_key,&v_key,&similarity,&blend
     };
 
     ret = CHECK_CU(cu->cuLaunchKernel(func,
@@ -320,10 +338,13 @@ static int cudadummy_process_internal(AVFilterContext *ctx,
     CUDADummyContext *s = ctx->priv;
     CudaFunctions *cu = s->hwctx->internal->cuda_dl;
     CUcontext dummy, cuda_ctx = s->hwctx->cuda_ctx;
+    float u_key,v_key;
     int i, ret;
 
     CUtexObject tex[3] = { 0, 0, 0 };
 
+    u_key = RGB_TO_U(s->chromakey_rgba);
+    v_key = RGB_TO_V(s->chromakey_rgba);
     ret = CHECK_CU(cu->cuCtxPushCurrent(cuda_ctx));
     if (ret < 0)
         return ret;
@@ -360,7 +381,8 @@ static int cudadummy_process_internal(AVFilterContext *ctx,
                            out->width, out->height, out->linesize[0],
                            AV_CEIL_RSHIFT(out->width, s->out_desc->log2_chroma_w),
                            AV_CEIL_RSHIFT(out->height, s->out_desc->log2_chroma_h),
-                           out->linesize[1] );
+                           out->linesize[1],
+                           u_key,v_key,s->similarity,s->blend );
     if (ret < 0)
         goto exit;
 
@@ -443,6 +465,9 @@ static AVFrame *cudadummy_get_video_buffer(AVFilterLink *inlink, int w, int h)
 #define OFFSET(x) offsetof(CUDADummyContext, x)
 #define FLAGS (AV_OPT_FLAG_FILTERING_PARAM|AV_OPT_FLAG_VIDEO_PARAM)
 static const AVOption options[] = {
+    { "color", "set the chromakey key color", OFFSET(chromakey_rgba), AV_OPT_TYPE_COLOR, { .str = "black" }, 0, 0, FLAGS },
+    { "similarity", "set the chromakey similarity value", OFFSET(similarity), AV_OPT_TYPE_FLOAT, { .dbl = 0.01 }, 0.01, 1.0, FLAGS },
+    { "blend", "set the chromakey key blend value", OFFSET(blend), AV_OPT_TYPE_FLOAT, { .dbl = 0.0 }, 0.0, 1.0, FLAGS },
     { "w", "Output video width",  OFFSET(w_expr), AV_OPT_TYPE_STRING, { .str = "iw" }, .flags = FLAGS },
     { "h", "Output video height", OFFSET(h_expr), AV_OPT_TYPE_STRING, { .str = "ih" }, .flags = FLAGS },
     { NULL },

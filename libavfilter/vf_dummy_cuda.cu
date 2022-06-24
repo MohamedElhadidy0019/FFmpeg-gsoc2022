@@ -27,9 +27,9 @@ extern "C"
 
     __device__ static inline void change_alpha_channel(cudaTextureObject_t src_tex,
                             cudaTextureObject_t src_tex_V,uchar *dst_A,
-                            int width_uv, int height_uv,int width,int height,int pitch,
-                            int x, int y, float2 chromakey_uv,
-                            float similarity,float blend, bool is_uchar2,uchar resize_ratio)
+                            int &width_uv, int &height_uv,int &width,int &height,int &pitch,
+                            int &x, int &y, float2 chromakey_uv,
+                            float &similarity,float &blend, bool is_uchar2,uchar &resize_ratio)
     {
 
         uchar window_size = 3;
@@ -125,10 +125,12 @@ extern "C"
     __global__ void Process_uchar(cudaTextureObject_t src_tex_Y, cudaTextureObject_t src_tex_U, cudaTextureObject_t src_tex_V,
                                   uchar *dst_Y, uchar *dst_U, uchar *dst_V,uchar *dst_A,
                                   int width, int height, int pitch,
-                                  int width_uv, int height_uv, int pitch_uv)
+                                  int width_uv, int height_uv, int pitch_uv,
+                            float u_key,float v_key, float similarity,
+                            float blend)
     {
 
-        int resize_ratio = 2;                           // size of window
+        uchar resize_ratio = 2;                           // size of window
         int x = blockIdx.x * blockDim.x + threadIdx.x; // x coordinate of current pixel
         int y = blockIdx.y * blockDim.y + threadIdx.y; // y coordinate of current pixel
 
@@ -143,19 +145,11 @@ extern "C"
         dst_V[uv_index]=tex2D<float>(src_tex_V,x,y)*255;
 
 
-    
-        // green color
-        float u_chroma = 48.0f;
-        float v_chroma = 45.0f;
-        float similarity = 0.22f;
-        float blend = 0.12f;
-
-
 
         change_alpha_channel(src_tex_U,src_tex_V,
                             dst_A,width_uv,height_uv,
                             width,height,
-                            pitch,x,y,make_float2(u_chroma,v_chroma),
+                            pitch,x,y,make_float2(u_key,v_key),
                             similarity,blend,false,resize_ratio);
 
     }
@@ -165,7 +159,9 @@ extern "C"
     __global__ void Process_uchar2(cudaTextureObject_t src_tex_Y, cudaTextureObject_t src_tex_UV, cudaTextureObject_t unused1,
                                    uchar *dst_Y, uchar *dst_U, uchar *dst_V,uchar *dst_A,
                                    int width, int height, int pitch,
-                                   int width_uv, int height_uv, int pitch_uv)
+                                   int width_uv, int height_uv, int pitch_uv,
+                            float u_key,float v_key, float similarity,
+                            float blend)
     {
 
         uchar resize_ratio = 2;                           // size of window
@@ -183,16 +179,10 @@ extern "C"
         dst_U[uv_index]=uv_temp.x*255;
         dst_V[uv_index]=uv_temp.y*255;
 
-
-        // green color
-        float u_chroma = 48.0f;
-        float v_chroma = 45.0f;
-        float similarity = 0.22f;
-        float blend = 0.12f;
         change_alpha_channel(src_tex_UV,(cudaTextureObject_t)nullptr,
                                 dst_A,width_uv,height_uv,
                                 width,height,pitch,
-                                x,y,make_float2(u_chroma,v_chroma),
+                                x,y,make_float2(u_key,v_key),
                                 similarity,blend,
                                 true,resize_ratio);
         
