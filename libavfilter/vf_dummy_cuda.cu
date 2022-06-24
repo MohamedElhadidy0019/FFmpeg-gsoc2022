@@ -25,8 +25,8 @@
 extern "C"
 {
 
-    __device__ static inline void change_alpha_channel(cudaTextureObject_t src_tex,
-                            cudaTextureObject_t src_tex_V,uchar *dst_A,
+    __device__ static inline void change_alpha_channel(cudaTextureObject_t &src_tex,
+                            cudaTextureObject_t &src_tex_V,uchar *dst_A,
                             int &width_uv, int &height_uv,int &width,int &height,int &pitch,
                             int &x, int &y, float2 chromakey_uv,
                             float &similarity,float &blend, bool is_uchar2,uchar &resize_ratio)
@@ -179,7 +179,7 @@ extern "C"
         dst_U[uv_index]=uv_temp.x*255;
         dst_V[uv_index]=uv_temp.y*255;
 
-        change_alpha_channel(src_tex_UV,(cudaTextureObject_t)nullptr,
+        change_alpha_channel(src_tex_UV,unused1,
                                 dst_A,width_uv,height_uv,
                                 width,height,pitch,
                                 x,y,make_float2(u_key,v_key),

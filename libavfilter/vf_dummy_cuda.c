@@ -75,7 +75,10 @@ typedef struct CUDADummyContext {
 
 
     uint8_t chromakey_rgba[4];
-    //uint16_t chromakey_uv[2];
+    uint16_t chromakey_uv[2];
+
+    int is_yuv;
+
 
     float similarity;
     float blend;
@@ -342,9 +345,14 @@ static int cudadummy_process_internal(AVFilterContext *ctx,
     int i, ret;
 
     CUtexObject tex[3] = { 0, 0, 0 };
-
-    u_key = RGB_TO_U(s->chromakey_rgba);
-    v_key = RGB_TO_V(s->chromakey_rgba);
+    if(s->is_yuv){
+        u_key=s->chromakey_rgba[1];
+        v_key=s->chromakey_rgba[2];
+    
+    }else{
+        u_key = RGB_TO_U(s->chromakey_rgba);
+        v_key = RGB_TO_V(s->chromakey_rgba);
+    }
     ret = CHECK_CU(cu->cuCtxPushCurrent(cuda_ctx));
     if (ret < 0)
         return ret;
@@ -468,6 +476,7 @@ static const AVOption options[] = {
     { "color", "set the chromakey key color", OFFSET(chromakey_rgba), AV_OPT_TYPE_COLOR, { .str = "black" }, 0, 0, FLAGS },
     { "similarity", "set the chromakey similarity value", OFFSET(similarity), AV_OPT_TYPE_FLOAT, { .dbl = 0.01 }, 0.01, 1.0, FLAGS },
     { "blend", "set the chromakey key blend value", OFFSET(blend), AV_OPT_TYPE_FLOAT, { .dbl = 0.0 }, 0.0, 1.0, FLAGS },
+    { "yuv", "color parameter is in yuv instead of rgb", OFFSET(is_yuv), AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, FLAGS },
     { "w", "Output video width",  OFFSET(w_expr), AV_OPT_TYPE_STRING, { .str = "iw" }, .flags = FLAGS },
     { "h", "Output video height", OFFSET(h_expr), AV_OPT_TYPE_STRING, { .str = "ih" }, .flags = FLAGS },
     { NULL },

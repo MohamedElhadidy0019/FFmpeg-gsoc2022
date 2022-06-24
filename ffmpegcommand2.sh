@@ -5,7 +5,7 @@ make -j 10
 -init_hw_device cuda \
 -filter_complex \
 " \
-[0:v]dummy_cuda=0x25FF13:0.1:0.12[overlay_video];
+[0:v]dummy_cuda=0x25302D:0.1:0.12:1[overlay_video];
 [1:v]scale_cuda=format=yuv420p[base];
 [base][overlay_video]overlay_cuda" \
 -an -sn -c:v h264_nvenc -cq 20 overlay_test.mp4
