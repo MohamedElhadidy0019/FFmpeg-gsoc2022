@@ -2,6 +2,8 @@
     "ros.distro": "noetic",
     "files.associations": {
         "internal.h": "c",
-        "formats.h": "c"
+        "formats.h": "c",
+        "algorithm": "c",
+        "*.txx": "c"
     }
 }
