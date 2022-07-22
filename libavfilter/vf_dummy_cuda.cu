@@ -27,22 +27,22 @@ extern "C" {
 
 //make a function
 
-__device__ static inline float distance(int x, int y, int i, int j) {
-    return float(sqrtf(powf(x - i, 2) + powf(y - j, 2)));
-}
+// __device__ static inline float distance(int x, int y, int i, int j) {
+//     return float(sqrtf(powf(x - i, 2) + powf(y - j, 2)));
+// }
 
-__device__ static inline float guassian(float x, float sigma)
-{
-    float val=x;
-    const float PI = 3.14159;
-    float ans;
-    //ans= (1/(2*PI*powf(sigma,2)))   * expf((-1/2) * (  powf(val,2) / powf(sigma,2) ) );
-    //return ans;
-    float first_term= (1/(sigma * sqrtf(2*PI)) );
-    float second_term= expf( -powf(x,2) / (2* powf(sigma,2)));
-    return first_term * second_term;
-    //return expf(-(powf(x, 2))/(2 * powf(sigma, 2))) / (2 * PI * powf(sigma, 2));
-}
+// __device__ static inline float guassian(float x, float sigma)
+// {
+//     float val=x;
+//     const float PI = 3.14159;
+//     float ans;
+//     //ans= (1/(2*PI*powf(sigma,2)))   * expf((-1/2) * (  powf(val,2) / powf(sigma,2) ) );
+//     //return ans;
+//     float first_term= (1/(sigma * sqrtf(2*PI)) );
+//     float second_term= expf( -powf(x,2) / (2* powf(sigma,2)));
+//     return first_term * second_term;
+//     //return expf(-(powf(x, 2))/(2 * powf(sigma, 2))) / (2 * PI * powf(sigma, 2));
+// }
 
 __device__ static inline float calculate_w(int x, int y, int r,int c,
                                     float pixel_value, float neighbor_value,
